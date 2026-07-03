@@ -13,6 +13,7 @@
 #load "font_atlas.jai";
 #load "text.jai";
 #load "quad_batch.jai";
+#load "texture_loading.jai";
 
 Uniforms :: struct {
     time: float32;

@@ -29,6 +29,11 @@ copy_file :: (from: string, to: string) -> bool {
         return;
     }
 
+    // @Todo: Make this copy folder
+    if !copy_file("Assets/icon.png", "bin/icon.png") {
+        return;
+    }
+
     w := compiler_create_workspace("Metal Framework");
     if !w return;
 

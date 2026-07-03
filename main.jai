@@ -84,6 +84,11 @@ render_pass :: () {
         Vector2.{750, 350}, Vector2.{820, 250}, Vector2.{880, 450}, Vector2.{950, 350},
         3.0, .[1.0, 0.6, 0.9, 1.0]);
 
+    icon_texture, ok := load_texture("Assets/icon.png");
+    if ok {
+        draw_textured_rect(400, 400, 64, 64, .[0,0], .[1,1], icon_texture);
+    }
+
     flush_quad_batch(encoder);
 
     draw_text("Jai Metal Framework", 20, 40, cast(float32)window_width, cast(float32)window_height, 1.0, cast(float32)window_width - 40);
