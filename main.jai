@@ -88,6 +88,16 @@ render_pass :: () {
     draw_line(20, 120, 220, 180, 3.0, .[1.0, 1.0, 0.0, 1.0]);
     draw_line(220, 120, 20, 180, 3.0, .[1.0, 1.0, 0.0, 1.0]);
 
+    // Quadratic — one control point pulling the curve upward
+    draw_quadratic_bezier(
+        Vector2.{750, 300}, Vector2.{850, 100}, Vector2.{950, 300},
+        3.0, .[0.4, 0.8, 1.0, 1.0]);
+
+    // Cubic — S-curve, classic case for testing two independent control points
+    draw_cubic_bezier(
+        Vector2.{750, 350}, Vector2.{820, 250}, Vector2.{880, 450}, Vector2.{950, 350},
+        3.0, .[1.0, 0.6, 0.9, 1.0]);
+
     flush_quad_batch(encoder);
 
     draw_text("Jai Metal Framework", 20, 40, cast(float32)window_width, cast(float32)window_height, 1.0, cast(float32)window_width - 40);

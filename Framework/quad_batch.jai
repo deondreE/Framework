@@ -122,3 +122,37 @@ draw_line :: (x0: float32, y0: float32, x1: float32, y1: float32, thickness: flo
 
     push_quad_range(global_framework.white_texture, 6);
 }
+
+evaluate_quadratic_bezier :: (p0: Vector2, p1: Vector2, p2: Vector2, t: float32) -> Vector2 {
+    u := 1.0 - t;
+    x := u*u*p0.x + 2*u*t*p1.x + t*t*p2.x;
+    y := u*u*p0.y + 2*u*t*p1.y + t*t*p2.y;
+    return Vector2.{x, y};
+}
+
+draw_quadratic_bezier :: (p0: Vector2, p1: Vector2, p2: Vector2, thickness: float32, color: [4] float32, segments: int = 24) {
+    prev := p0;
+    for i : 1..segments {
+        t := cast(float32)i / cast(float32)segments;
+        curr := evaluate_quadratic_bezier(p0, p1, p2, t);
+        draw_line(prev.x, prev.y, curr.x, curr.y, thickness, color);
+        prev = curr;
+    }
+}
+
+evaluate_cubic_bezier :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, t: float32) -> Vector2 {
+    u := 1.0 - t;
+    x := u*u*u*p0.x + 3*u*u*t*p1.x + 3*u*t*t*p2.x + t*t*t*p3.x;
+    y := u*u*u*p0.y + 3*u*u*t*p1.y + 3*u*t*t*p2.y + t*t*t*p3.y;
+    return Vector2.{x, y};
+}
+
+draw_cubic_bezier :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, thickness: float32, color: [4] float32, segments: int = 32) {
+    prev := p0;
+    for i : 1..segments {
+        t := cast(float32)i / cast(float32)segments;
+        curr := evaluate_cubic_bezier(p0, p1, p2, p3, t);
+        draw_line(prev.x, prev.y, curr.x, curr.y, thickness, color);
+        prev = curr;
+    }
+}
