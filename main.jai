@@ -66,7 +66,20 @@ render_pass :: () {
     encoder.setVertexBytes_length_atIndex(encoder, *screen_uniforms, size_of(Screen_Uniforms), 3);
     encoder.drawPrimitives_vertexStart_vertexCount_instanceCount(encoder, .MTLPrimitiveTypeTriangle, 0, 3, xx instances.count);
 
-    draw_rect(20, 120, 200, 60, .[0.2, 0.4, 0.9, 1.0]); // solid blue-ish panel, pixel-space
+    ///// 
+    // Panel interaction test
+    panel_x, panel_y, panel_w, panel_h : float32 = 20, 120, 200, 60;
+    panel_color := float32.[0.2, 0.4, 0.9, 1.0];
+
+    if mouse_over_rect(mouse, panel_x, panel_y, panel_w, panel_h) {
+        panel_color = .[0.3, 0.55, 1.0, 1.0];
+        if mouse.left_pressed {
+            print("Panel clicked at %, %\n", mouse.x, mouse.y);
+        }
+    }
+
+    draw_rect(panel_x, panel_y, panel_w, panel_h, panel_color);
+    // draw_rect(20, 120, 200, 60, .[0.2, 0.4, 0.9, 1.0]); // solid blue-ish panel, pixel-space
 
     // --- draw_line tests ---
 

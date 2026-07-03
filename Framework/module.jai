@@ -13,6 +13,7 @@
 #load "font_atlas.jai";
 #load "text.jai";
 #load "quad_batch.jai";
+#load "mouse_input.jai";
 #load "texture_loading.jai";
 
 Uniforms :: struct {
@@ -68,6 +69,7 @@ Framework :: struct {
     FALLBACK_CHAR :: #char "?";
 
     quit := false;
+    mouse: Mouse_State;
 }
 
 global_framework: Framework;
@@ -324,6 +326,8 @@ update_framework :: () {
             if event.key_code == .ESCAPE && event.key_pressed quit = true;
         }
     }
+
+    update_mouse_state(*mouse, window);
 
     resizes := get_window_resizes();
     for resize : resizes {
