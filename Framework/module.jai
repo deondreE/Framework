@@ -61,6 +61,7 @@ Framework :: struct {
     quad_vertex_buffer_capacity: int;
 
     font: Font_Atlas;
+    white_texture: *MTLTexture;
 
     text_batch: [..] Text_Vertex;
     FALLBACK_CHAR :: #char "?";
@@ -320,9 +321,12 @@ flush_quad_batch :: (encoder: *MTLRenderCommandEncoder) {
     encoder.setRenderPipelineState(encoder, xx quad_pipeline_state);
     encoder.setVertexBuffer_offset_atIndex(encoder, xx current_buffer, 0, 0);
     encoder.setVertexBytes_length_atIndex(encoder, *screen_uniforms, size_of(Screen_Uniforms), 1);
-    encoder.setFragmentTexture_atIndex(encoder, xx white_texture, 0);
-    encoder.setFragmentSamplerState_atIndex(encoder, xx text_sampler_state, 0); // reuse the linear sampler
-    encoder.drawPrimitives_vertexStart_vertexCount(encoder, .MTLPrimitiveTypeTriangle, 0, xx quad_batch.count);
+    encoder.setFragmentSamplerState_atIndex(encoder, xx text_sampler_state, 0);
+
+    for range : quad_draw_ranges {
+        encoder.setFragmentTexture_atIndex(encoder, xx range.texture, 0);
+        encoder.drawPrimitives_vertexStart_vertexCount(encoder, .MTLPrimitiveTypeTriangle, xx range.start, xx range.count);
+    }
 }
 
 update_framework :: () {

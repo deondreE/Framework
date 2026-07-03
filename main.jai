@@ -30,6 +30,7 @@ render_pass :: () {
 
     array_reset(*text_batch);
     array_reset(*quad_batch);
+    array_reset(*quad_draw_ranges);
 
     // Get the next drawable to render into
     drawable := metal_layer.nextDrawable(metal_layer);
@@ -66,6 +67,27 @@ render_pass :: () {
     encoder.drawPrimitives_vertexStart_vertexCount_instanceCount(encoder, .MTLPrimitiveTypeTriangle, 0, 3, xx instances.count);
 
     draw_rect(20, 120, 200, 60, .[0.2, 0.4, 0.9, 1.0]); // solid blue-ish panel, pixel-space
+
+    // --- draw_line tests ---
+
+    // Thin horizontal line
+    draw_line(20, 220, 400, 220, 2.0, .[1.0, 1.0, 1.0, 1.0]);
+
+    // Thin vertical line
+    draw_line(450, 100, 450, 300, 2.0, .[1.0, 1.0, 1.0, 1.0]);
+
+    // Thick diagonal line, to check the perpendicular-offset math at an angle
+    draw_line(500, 100, 700, 300, 8.0, .[1.0, 0.3, 0.3, 1.0]);
+
+    // Thick diagonal the other direction, different color, overlapping the first
+    // to visually confirm both directions render symmetrically (not just axis-aligned)
+    draw_line(500, 300, 700, 100, 8.0, .[0.3, 1.0, 0.3, 1.0]);
+
+    // A small "X" crosshair directly over the panel, to confirm draw_line and
+    // draw_rect composite correctly in the same batch/flush
+    draw_line(20, 120, 220, 180, 3.0, .[1.0, 1.0, 0.0, 1.0]);
+    draw_line(220, 120, 20, 180, 3.0, .[1.0, 1.0, 0.0, 1.0]);
+
     flush_quad_batch(encoder);
 
     draw_text("Jai Metal Framework", 20, 40, cast(float32)window_width, cast(float32)window_height, 1.0, cast(float32)window_width - 40);
