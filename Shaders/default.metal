@@ -79,3 +79,46 @@ fragment float4 fragment_text(TextVertexOut in [[stage_in]],
     float alpha = atlas.sample(atlas_sampler, in.uv).r;
     return float4(1.0, 1.0, 1.0, alpha); // white text, tint later via a color uniform if needed
 }
+
+// -----------------------------------------------------------------
+// Quad rendering (glyph atlas quads) — matches Text_Vertex in font_atlas.jai
+// -----------------------------------------------------------------
+
+struct QuadVertexIn {
+    packed_float2 position; // pixel space
+    packed_float2 uv;
+    packed_float4 color;
+};
+
+struct QuadVertexOut {
+    float4 position [[position]];
+    float2 uv;
+    float4 color;
+};
+
+struct ScreenUniforms {
+    float2 screen_size;
+};
+
+vertex QuadVertexOut vertex_quad(uint vid [[vertex_id]],
+                                  constant QuadVertexIn *vertices [[buffer(0)]],
+                                  constant ScreenUniforms &screen [[buffer(1)]]) {
+    QuadVertexIn in = vertices[vid];
+
+    float2 ndc;
+    ndc.x = (in.position.x / screen.screen_size.x) * 2.0 - 1.0;
+    ndc.y = 1.0 - (in.position.y / screen.screen_size.y) * 2.0;
+
+    QuadVertexOut out;
+    out.position = float4(ndc, 0.0, 1.0);
+    out.uv = in.uv;
+    out.color = in.color;
+    return out;
+}
+
+fragment float4 fragment_quad(QuadVertexOut in [[stage_in]],
+                               texture2d<float> tex [[texture(0)]],
+                               sampler tex_sampler [[sampler(0)]]) {
+    float4 tex_color = tex.sample(tex_sampler, in.uv);
+    return tex_color * in.color;
+}

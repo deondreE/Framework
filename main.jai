@@ -13,12 +13,12 @@ main :: () {
 
      while !global_framework.quit {
         reset_temporary_storage();
-        
+
         pool := objc_init(objc_alloc(objc_getClass("NSAutoReleasePool")));
-        
+
         update_framework();
         render_pass();
-        
+
         release_pool: (*void, Selector) -> void #c_call;
         release_pool = xx objc_msgSend;
         release_pool(pool, sel_registerName("release"));
@@ -37,7 +37,7 @@ render_pass :: () {
     pass_descriptor := MTLRenderPassDescriptor.renderPassDescriptor();
     color_attachments := pass_descriptor.colorAttachments(pass_descriptor);
     color_attachment := color_attachments.objectAtIndexedSubscript(color_attachments, 0);
-    
+
     color_attachment.setTexture(color_attachment, drawable.texture(drawable));
     color_attachment.setLoadAction(color_attachment, .MTLLoadActionClear);
     color_attachment.setStoreAction(color_attachment, .MTLStoreActionStore);
@@ -60,6 +60,9 @@ render_pass :: () {
     encoder.setVertexBytes_length_atIndex(encoder, instances.data, cast(u64)(size_of(InstanceData) * instances.count), 2);
     encoder.drawPrimitives_vertexStart_vertexCount_instanceCount(encoder, .MTLPrimitiveTypeTriangle, 0, 3, xx instances.count);
 
+    draw_rect(20, 120, 200, 60, .[0.2, 0.4, 0.9, 1.0]); // solid blue-ish panel, pixel-space
+    flush_quad_batch(encoder);
+
     draw_text("Jai Metal Framework", 20, 40, cast(float32)window_width, cast(float32)window_height, 1.0, cast(float32)window_width - 40);
     draw_text("Second label, wraps if too long to fit on one line here", 20, 80, cast(float32)window_width, cast(float32)window_height, 1.0, 300);
     flush_text_batch(encoder);
@@ -67,4 +70,6 @@ render_pass :: () {
     encoder.endEncoding(encoder);
     cmd_buffer.presentDrawable(cmd_buffer, xx drawable);
     cmd_buffer.commit(cmd_buffer);
+
+    frame_index += 1;
 }

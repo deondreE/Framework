@@ -66,3 +66,73 @@ append_glyph_quad :: (verts: *[..] Text_Vertex, g: Glyph, cursor_x: float32, y: 
     array_add(verts, Text_Vertex.{ .[x1, y1], .[u1, v1] });
     array_add(verts, Text_Vertex.{ .[x1, y0], .[u1, v0] });
 }
+
+TEXT_BUFFER_INITIAL_CAPACITY :: 4096;
+
+ensure_text_buffer_capacity :: (needed_verts: int) {
+    using global_framework;
+
+    if needed_verts <= text_vertex_buffer_capacity return;
+
+    new_capacity := max(needed_verts, text_vertex_buffer_capacity * 2);
+    if new_capacity < TEXT_BUFFER_INITIAL_CAPACITY new_capacity = TEXT_BUFFER_INITIAL_CAPACITY;
+
+    for i : 0..MAX_FRAMES_IN_FLIGHT - 1 {
+        text_vertex_buffers[i] = device.newBufferWithLength_options(
+            device, xx (size_of(Text_Vertex) * new_capacity), xx 0);
+    }
+
+    text_vertex_buffer_capacity = new_capacity;
+}
+
+draw_text :: (text: string, x: float32, y: float32, screen_w: float32, screen_h: float32, scale: float32 = 1.0, max_width: float32 = -1.0) {
+    using global_framework;
+
+    line_height := font.line_height * scale;
+
+    cursor_x := x;
+    cursor_y := y;
+
+    i := 0;
+    while i < text.count {
+        if text[i] == #char "\n" {
+            cursor_x = x;
+            cursor_y += line_height;
+            i += 1;
+            continue;
+        }
+
+        if text[i] == #char " " {
+            g := glyph_for_codepoint(#char " ");
+            cursor_x += g.advance * scale;
+            i += 1;
+            continue;
+        }
+
+        // Find the extent of the next word (up to next space/newline).
+        word_start := i;
+        j := i;
+        while j < text.count && text[j] != #char " " && text[j] != #char "\n" {
+            j += 1;
+        }
+
+        if max_width > 0 {
+            word_width := measure_width(text, word_start, j, scale);
+            if cursor_x + word_width > x + max_width && cursor_x > x {
+                cursor_x = x;
+                cursor_y += line_height;
+            }
+        }
+
+        // Render the word, glyph by glyph, decoding UTF-8 as we go.
+        k := word_start;
+        while k < j {
+            cp := decode_utf8(text, *k);
+            g := glyph_for_codepoint(cp);
+            append_glyph_quad(*text_batch, g, cursor_x, cursor_y, scale, screen_w, screen_h);
+            cursor_x += g.advance * scale;
+        }
+
+        i = j;
+    }
+}

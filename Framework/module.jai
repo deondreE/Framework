@@ -12,6 +12,7 @@
 #load "metal_helpers.jai";
 #load "font_atlas.jai";
 #load "text.jai";
+#load "quad_batch.jai";
 
 Uniforms :: struct {
     time: float32;
@@ -28,7 +29,7 @@ InstanceData :: struct {
     _pad: float32;
 }
 
-
+MAX_FRAMES_IN_FLIGHT :: 3;
 Framework :: struct {
     window: *NSWindow;
     window_width : s32 = 1280;
@@ -50,8 +51,15 @@ Framework :: struct {
 
     text_pipeline_state: *MTLRenderPipelineState;
     text_sampler_state: *MTLSamplerState;
-    text_vertex_buffer: *MTLBuffer;
+
+    frame_index: int;
+    text_vertex_buffers: [MAX_FRAMES_IN_FLIGHT] *MTLBuffer;
     text_vertex_buffer_capacity: int;
+
+    quad_pipeline_state: *MTLRenderPipelineState;
+    quad_vertex_buffers: [MAX_FRAMES_IN_FLIGHT] *MTLBuffer;
+    quad_vertex_buffer_capacity: int;
+
     font: Font_Atlas;
 
     text_batch: [..] Text_Vertex;
@@ -60,26 +68,10 @@ Framework :: struct {
     quit := false;
 }
 
-TEXT_BUFFER_INITIAL_CAPACITY :: 4096; // vertices; grows as needed
-
-ensure_text_buffer_capacity :: (needed_verts: int) {
-    using global_framework;
-
-    if needed_verts <= text_vertex_buffer_capacity return;
-
-    new_capacity := max(needed_verts, text_vertex_buffer_capacity * 2);
-    if new_capacity < TEXT_BUFFER_INITIAL_CAPACITY new_capacity = TEXT_BUFFER_INITIAL_CAPACITY;
-
-    text_vertex_buffer = device.newBufferWithLength_options(
-        device, xx (size_of(Text_Vertex) * new_capacity), xx 0); // 0 = MTLResourceStorageModeShared on Apple Silicon (default)
-
-    text_vertex_buffer_capacity = new_capacity;
-}
-
 global_framework: Framework;
 
 create_depth_using_texture :: (width: s32, height: s32) -> *MTLTexture {
-    using global_framework; 
+    using global_framework;
 
     desc := MTLTextureDescriptor.texture2DDescriptorWithPixelFormat_width_height_mipmapped(
         depth_pixel_format, xx width, xx height, NO);
@@ -140,15 +132,17 @@ init_framework :: () -> bool {
     }
 
     vertex_name := NSString.initWithString(objc_alloc(NSString), "vertex_main");
-    fragment_name := NSString.initWithString(objc_alloc(NSString), "fragment_main"); 
+    fragment_name := NSString.initWithString(objc_alloc(NSString), "fragment_main");
 
     vertex_fn := library.newFunctionWithName(library, vertex_name);
     fragment_fn := library.newFunctionWithName(library, fragment_name);
     text_vertex_fn := library.newFunctionWithName(library, ns_string("vertex_text"));
     text_fragment_fn := library.newFunctionWithName(library, ns_string("fragment_text"));
+    quad_vertex_fn := library.newFunctionWithName(library, ns_string("vertex_quad"));
+    quad_fragment_fn := library.newFunctionWithName(library, ns_string("fragment_quad"));
 
-    if !vertex_fn || !fragment_fn {
-        print("Error: Could not fund vertex_main/fragment_main in shader library.\n");
+    if !vertex_fn || !fragment_fn || !text_vertex_fn || !text_fragment_fn {
+        print("Error: Could not create shader lib missing func.\n");
         return false;
     }
 
@@ -213,6 +207,30 @@ init_framework :: () -> bool {
         return false;
     }
 
+    //////////////////
+    // User Interface pipeline state
+    quad_pipeline_desc := objc_init(objc_alloc(MTLRenderPipelineDescriptor));
+    quad_pipeline_desc.setVertexFunction(quad_pipeline_desc, quad_vertex_fn);
+    quad_pipeline_desc.setFragmentFunction(quad_pipeline_desc, quad_fragment_fn);
+    quad_pipeline_desc.setDepthAttachmentPixelFormat(quad_pipeline_desc, depth_pixel_format);
+
+    quad_color0 := quad_pipeline_desc.colorAttachments(quad_pipeline_desc).objectAtIndexedSubscript(quad_pipeline_desc.colorAttachments(quad_pipeline_desc), 0);
+    quad_color0.setPixelFormat(quad_color0, .MTLPixelFormatBGRA8Unorm);
+    quad_color0.setBlendingEnabled(quad_color0, YES);
+    quad_color0.setSourceRGBBlendFactor(quad_color0, .MTLBlendFactorSourceAlpha);
+    quad_color0.setDestinationRGBBlendFactor(quad_color0, .MTLBlendFactorOneMinusSourceAlpha);
+    quad_color0.setSourceAlphaBlendFactor(quad_color0, .MTLBlendFactorSourceAlpha);
+    quad_color0.setDestinationAlphaBlendFactor(quad_color0, .MTLBlendFactorOneMinusSourceAlpha);
+
+    quad_pipeline_error: *NSError;
+    quad_pipeline_state = xx device.newRenderPipelineStateWithDescriptor_error(device, quad_pipeline_desc, *quad_pipeline_error);
+    if !quad_pipeline_state {
+        print("Error: could not create quad pipeline state: %\n", quad_pipeline_error);
+        return false;
+    }
+
+    white_texture = make_white_texture();
+
     vertices := Vertex.[
         .{ .[0.0, 0.5, 0.0], .[1, 0, 0] },
         .{ .[-0.5, -0.5, 0.0], .[0, 1, 0] },
@@ -221,7 +239,7 @@ init_framework :: () -> bool {
 
     vertex_buffer = device.newBufferWithBytes_length_options(
         device, vertices.data, size_of(Vertex) * vertices.count, xx 0);
-    
+
     command_queue = MTLDevice.newCommandQueue(device);
     if !command_queue {
         print("Error: Could not create Metal command queue.\n");
@@ -244,7 +262,7 @@ init_framework :: () -> bool {
     array_add(*instances, InstanceData.{ .[-0.6,  0.4], 1.0, 0.0 });
     array_add(*instances, InstanceData.{ .[ 0.6,  0.4], -1.5, 0.0 });
     array_add(*instances, InstanceData.{ .[ 0.0, -0.5], 2.5, 0.0 });
-    
+
     start_time = current_time_monotonic();
 
     return true;
@@ -267,72 +285,44 @@ measure_width :: (text: string, start: int, end: int, scale: float32) -> float32
     return width;
 }
 
-draw_text :: (text: string, x: float32, y: float32, screen_w: float32, screen_h: float32, scale: float32 = 1.0, max_width: float32 = -1.0) {
-    using global_framework;
-
-    line_height := font.line_height * scale;
-
-    cursor_x := x;
-    cursor_y := y;
-
-    i := 0;
-    while i < text.count {
-        if text[i] == #char "\n" {
-            cursor_x = x;
-            cursor_y += line_height;
-            i += 1;
-            continue;
-        }
-
-        if text[i] == #char " " {
-            g := glyph_for_codepoint(#char " ");
-            cursor_x += g.advance * scale;
-            i += 1;
-            continue;
-        }
-
-        // Find the extent of the next word (up to next space/newline).
-        word_start := i;
-        j := i;
-        while j < text.count && text[j] != #char " " && text[j] != #char "\n" {
-            j += 1;
-        }
-
-        if max_width > 0 {
-            word_width := measure_width(text, word_start, j, scale);
-            if cursor_x + word_width > x + max_width && cursor_x > x {
-                cursor_x = x;
-                cursor_y += line_height;
-            }
-        }
-
-        // Render the word, glyph by glyph, decoding UTF-8 as we go.
-        k := word_start;
-        while k < j {
-            cp := decode_utf8(text, *k);
-            g := glyph_for_codepoint(cp);
-            append_glyph_quad(*text_batch, g, cursor_x, cursor_y, scale, screen_w, screen_h);
-            cursor_x += g.advance * scale;
-        }
-
-        i = j;
-    }
-}
-
 flush_text_batch :: (encoder: *MTLRenderCommandEncoder) {
     using global_framework;
 
     if text_batch.count == 0 return;
 
     ensure_text_buffer_capacity(text_batch.count);
-    dst := text_vertex_buffer.contents(text_vertex_buffer);
+    current_buffer := text_vertex_buffers[frame_index % MAX_FRAMES_IN_FLIGHT];
+
+    dst := current_buffer.contents(current_buffer);
     memcpy(dst, text_batch.data, size_of(Text_Vertex) * text_batch.count);
 
     encoder.setRenderPipelineState(encoder, xx text_pipeline_state);
-    encoder.setVertexBuffer_offset_atIndex(encoder, xx text_vertex_buffer, 0, 0);
+    encoder.setVertexBuffer_offset_atIndex(encoder, xx current_buffer, 0, 0);
     encoder.setFragmentTexture_atIndex(encoder, xx font.texture, 0);
     encoder.setFragmentSamplerState_atIndex(encoder, xx text_sampler_state, 0);
     encoder.drawPrimitives_vertexStart_vertexCount(encoder, .MTLPrimitiveTypeTriangle, 0, xx text_batch.count);
+}
+
+flush_quad_batch :: (encoder: *MTLRenderCommandEncoder) {
+    using global_framework;
+
+    if quad_batch.count == 0 return;
+
+    ensure_quad_buffer_capacity(quad_batch.count);
+
+    current_buffer := quad_vertex_buffers[frame_index % MAX_FRAMES_IN_FLIGHT];
+    dst := current_buffer.contents(current_buffer);
+    memcpy(dst, quad_batch.data, size_of(Quad_Vertex) * quad_batch.count);
+
+    screen_uniforms: Screen_Uniforms;
+    screen_uniforms.screen_size = .[cast(float32)window_width, cast(float32)window_height];
+
+    encoder.setRenderPipelineState(encoder, xx quad_pipeline_state);
+    encoder.setVertexBuffer_offset_atIndex(encoder, xx current_buffer, 0, 0);
+    encoder.setVertexBytes_length_atIndex(encoder, *screen_uniforms, size_of(Screen_Uniforms), 1);
+    encoder.setFragmentTexture_atIndex(encoder, xx white_texture, 0);
+    encoder.setFragmentSamplerState_atIndex(encoder, xx text_sampler_state, 0); // reuse the linear sampler
+    encoder.drawPrimitives_vertexStart_vertexCount(encoder, .MTLPrimitiveTypeTriangle, 0, xx quad_batch.count);
 }
 
 update_framework :: () {
