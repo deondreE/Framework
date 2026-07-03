@@ -109,6 +109,12 @@ init_framework :: () -> bool {
     window = create_window(window_width, window_height, "Jai Metal Framework");
     if !window return false;
 
+    real_x, real_y, real_w, real_h, dim_ok := get_dimensions(window, false);
+    if dim_ok {
+        window_width = real_w;
+        window_height = real_h;
+    }
+
     device = xx MTLCreateSystemDefaultDevice();
     if !device {
         print("Error: Metal not supported.\n");
@@ -255,6 +261,10 @@ init_framework :: () -> bool {
     metal_layer = objc_init(objc_alloc(CAMetalLayer));
     CAMetalLayer.setDevice(metal_layer, device);
     CAMetalLayer.setPixelFormat(metal_layer, .MTLPixelFormatBGRA8Unorm);
+
+    target_screen := NSScreen.mainScreen();
+    backing_screen := NSScreen.backingScaleFactor(target_screen);
+    CAMetalLayer.setDrawableSize(metal_layer, CGSize.{xx window_width, xx window_height});
 
     NSView.setWantsLayer(view, YES);
 
