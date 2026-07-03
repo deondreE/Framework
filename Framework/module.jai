@@ -269,23 +269,6 @@ init_framework :: () -> bool {
     return true;
 }
 
-glyph_for_codepoint :: (cp: u32) -> Glyph {
-    using global_framework;
-    if cp >= 32 && cp <= 126 return font.glyphs[cp];
-    return font.glyphs[FALLBACK_CHAR];
-}
-
-measure_width :: (text: string, start: int, end: int, scale: float32) -> float32 {
-    width: float32 = 0;
-    i := start;
-    while i < end {
-        cp := decode_utf8(text, *i);
-        g := glyph_for_codepoint(cp);
-        width += g.advance * scale;
-    }
-    return width;
-}
-
 flush_text_batch :: (encoder: *MTLRenderCommandEncoder) {
     using global_framework;
 
@@ -350,7 +333,6 @@ update_framework :: () {
 
         CAMetalLayer.setDrawableSize(metal_layer, CGSize.{xx window_width, xx window_height});
 
-        // release_object(depth_texture);
         depth_texture = create_depth_using_texture(window_width, window_height);
     }
 }

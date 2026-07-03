@@ -70,23 +70,9 @@ render_pass :: () {
 
     // --- draw_line tests ---
 
-    // Thin horizontal line
-    draw_line(20, 220, 400, 220, 2.0, .[1.0, 1.0, 1.0, 1.0]);
-
-    // Thin vertical line
-    draw_line(450, 100, 450, 300, 2.0, .[1.0, 1.0, 1.0, 1.0]);
-
     // Thick diagonal line, to check the perpendicular-offset math at an angle
     draw_line(500, 100, 700, 300, 8.0, .[1.0, 0.3, 0.3, 1.0]);
-
-    // Thick diagonal the other direction, different color, overlapping the first
-    // to visually confirm both directions render symmetrically (not just axis-aligned)
     draw_line(500, 300, 700, 100, 8.0, .[0.3, 1.0, 0.3, 1.0]);
-
-    // A small "X" crosshair directly over the panel, to confirm draw_line and
-    // draw_rect composite correctly in the same batch/flush
-    draw_line(20, 120, 220, 180, 3.0, .[1.0, 1.0, 0.0, 1.0]);
-    draw_line(220, 120, 20, 180, 3.0, .[1.0, 1.0, 0.0, 1.0]);
 
     // Quadratic — one control point pulling the curve upward
     draw_quadratic_bezier(

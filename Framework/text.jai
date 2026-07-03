@@ -85,6 +85,23 @@ ensure_text_buffer_capacity :: (needed_verts: int) {
     text_vertex_buffer_capacity = new_capacity;
 }
 
+glyph_for_codepoint :: (cp: u32) -> Glyph {
+    using global_framework;
+    if cp >= 32 && cp <= 126 return font.glyphs[cp];
+    return font.glyphs[FALLBACK_CHAR];
+}
+
+measure_width :: (text: string, start: int, end: int, scale: float32) -> float32 {
+    width: float32 = 0;
+    i := start;
+    while i < end {
+        cp := decode_utf8(text, *i);
+        g := glyph_for_codepoint(cp);
+        width += g.advance * scale;
+    }
+    return width;
+}
+
 draw_text :: (text: string, x: float32, y: float32, screen_w: float32, screen_h: float32, scale: float32 = 1.0, max_width: float32 = -1.0) {
     using global_framework;
 
