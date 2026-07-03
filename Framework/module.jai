@@ -232,9 +232,9 @@ init_framework :: () -> bool {
     white_texture = make_white_texture();
 
     vertices := Vertex.[
-        .{ .[0.0, 0.5, 0.0], .[1, 0, 0] },
-        .{ .[-0.5, -0.5, 0.0], .[0, 1, 0] },
-        .{ .[ 0.5, -0.5, 0.0], .[0, 0, 0] },
+        .{ .[0.0, 60.0, 0.0], .[1, 0, 0] },
+        .{ .[-60.0, -60.0, 0.0], .[0, 1, 0] },
+        .{ .[ 60.0, -60.0, 0.0], .[0, 0, 0] },
     ];
 
     vertex_buffer = device.newBufferWithBytes_length_options(
@@ -259,9 +259,9 @@ init_framework :: () -> bool {
     set_layer = xx objc_msgSend;
     set_layer(view, sel_registerName("setLayer:"), metal_layer);
 
-    array_add(*instances, InstanceData.{ .[-0.6,  0.4], 1.0, 0.0 });
-    array_add(*instances, InstanceData.{ .[ 0.6,  0.4], -1.5, 0.0 });
-    array_add(*instances, InstanceData.{ .[ 0.0, -0.5], 2.5, 0.0 });
+    array_add(*instances, InstanceData.{ .[-200.0,  150.0], 1.0, 0.0 });
+    array_add(*instances, InstanceData.{ .[ 200.0,  150.0], -1.5, 0.0 });
+    array_add(*instances, InstanceData.{ .[ 0.0, -150.0], 2.5, 0.0 });
 
     start_time = current_time_monotonic();
 

@@ -29,6 +29,7 @@ render_pass :: () {
     using global_framework;
 
     array_reset(*text_batch);
+    array_reset(*quad_batch);
 
     // Get the next drawable to render into
     drawable := metal_layer.nextDrawable(metal_layer);
@@ -52,12 +53,16 @@ render_pass :: () {
     uniforms: Uniforms;
     uniforms.time = elapsed;
 
+    screen_uniforms: Screen_Uniforms;
+    screen_uniforms.screen_size = .[cast(float32)window_width, cast(float32)window_height];
+
     //////////////////
     // Draw calls
     encoder.setRenderPipelineState(encoder, xx pipeline_state);
     encoder.setVertexBuffer_offset_atIndex(encoder, xx vertex_buffer, 0, 0);
     encoder.setVertexBytes_length_atIndex(encoder, xx *uniforms, size_of(Uniforms), 1);
     encoder.setVertexBytes_length_atIndex(encoder, instances.data, cast(u64)(size_of(InstanceData) * instances.count), 2);
+    encoder.setVertexBytes_length_atIndex(encoder, *screen_uniforms, size_of(Screen_Uniforms), 3);
     encoder.drawPrimitives_vertexStart_vertexCount_instanceCount(encoder, .MTLPrimitiveTypeTriangle, 0, 3, xx instances.count);
 
     draw_rect(20, 120, 200, 60, .[0.2, 0.4, 0.9, 1.0]); // solid blue-ish panel, pixel-space

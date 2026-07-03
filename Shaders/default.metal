@@ -2,7 +2,7 @@
 using namespace metal;
 
 struct VertexIn {
-    packed_float3 position;
+    packed_float3 position; // pixel-space
     packed_float3 color;
 };
 
@@ -20,11 +20,16 @@ struct InstanceData {
     float2 rotation_speed;
 };
 
+struct ScreenUniforms {
+    float2 screen_size;
+};
+
 vertex VertexOut vertex_main(uint vertexID [[vertex_id]],
                              uint instanceID [[instance_id]],
                              constant VertexIn *vertices [[buffer(0)]],
                              constant Uniforms &uniforms [[buffer(1)]],
-                             constant InstanceData *instances [[buffer(2)]]) {
+                             constant InstanceData *instances [[buffer(2)]],
+                             constant ScreenUniforms &screen [[buffer(3)]]) {
     VertexIn in = vertices[vertexID];
     InstanceData inst = instances[instanceID];
 
@@ -39,8 +44,13 @@ vertex VertexOut vertex_main(uint vertexID [[vertex_id]],
     
     rotated += inst.offset;
     
+    // Pixel space (origin = screen center) -> NDC
+    float2 ndc = rotated / (screen.screen_size * 0.5);
+    ndc.y = -ndc.y;
+    
     VertexOut out;
-    out.position = float4(rotated, in.position.z, 1.0);
+    // Fix: Use the ndc coordinates for the final position
+    out.position = float4(ndc, in.position.z, 1.0);
     out.color = float4(in.color, 1.0);
     return out;
 }
@@ -50,11 +60,11 @@ fragment float4 fragment_main(VertexOut in [[stage_in]]) {
 }
 
 // -----------------------------------------------------------------
-// Text rendering (glyph atlas quads) — matches Text_Vertex in font_atlas.jai
+// Text rendering
 // -----------------------------------------------------------------
 
 struct TextVertexIn {
-    packed_float2 position; // already in NDC, computed on the CPU in draw_text
+    packed_float2 position; // already in NDC
     packed_float2 uv;
 };
 
@@ -77,11 +87,11 @@ fragment float4 fragment_text(TextVertexOut in [[stage_in]],
                                texture2d<float> atlas [[texture(0)]],
                                sampler atlas_sampler [[sampler(0)]]) {
     float alpha = atlas.sample(atlas_sampler, in.uv).r;
-    return float4(1.0, 1.0, 1.0, alpha); // white text, tint later via a color uniform if needed
+    return float4(1.0, 1.0, 1.0, alpha); 
 }
 
 // -----------------------------------------------------------------
-// Quad rendering (glyph atlas quads) — matches Text_Vertex in font_atlas.jai
+// Quad rendering
 // -----------------------------------------------------------------
 
 struct QuadVertexIn {
@@ -94,10 +104,6 @@ struct QuadVertexOut {
     float4 position [[position]];
     float2 uv;
     float4 color;
-};
-
-struct ScreenUniforms {
-    float2 screen_size;
 };
 
 vertex QuadVertexOut vertex_quad(uint vid [[vertex_id]],
