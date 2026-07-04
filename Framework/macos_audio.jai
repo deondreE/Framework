@@ -24,6 +24,12 @@ kAudioUnitProperty_StreamFormat      :: 8;
 kAudioUnitProperty_SetRenderCallback :: 23;
 kAudioUnitProperty_MaximumFramesPerSlice :: 14;
 
+kExtAudioFileProperty_FileDataFormat :: 1;
+kExtAudioFileProperty_ClientDataFormat :: 2;
+kExtAudioFileProperty_FileLengthFrames :: 3;
+
+kCFStringEncodingUTF8 :: 0x80000100;
+
 kAudioUnitScope_Global :: 0;
 kAudioUnitScope_Input  :: 1;
 kAudioUnitScope_Output :: 2;
@@ -150,6 +156,14 @@ AudioChannelLayout :: struct {
     mNumberChannelDescriptions: u32;
     mChannelDescriptions: [1] AudioChannelDescription;
 }
+
+ExtAudioFileRef :: *void;
+
+ExtAudioFileOpenURL :: (inURL: CFURLRef, outExtAudioFile: *ExtAudioFileRef) -> OSStatus #foreign AudioToolbox;
+ExtAudioFileGetProperty :: (inExtAudioFile: ExtAudioFileRef, inPropertyID: u32, ioPropertyDataSize: *u32, outPropertyData: *void) -> OSStatus #foreign AudioToolbox;
+ExtAudioFileSetProperty :: (inExtAudioFile: ExtAudioFileRef, inPropertyID: u32, inPropertyDataSize: u32, inPropertyData: *void) -> OSStatus #foreign AudioToolbox;
+ExtAudioFileRead :: (inExtAudioFile: ExtAudioFileRef, ioNumberFrames: *u32, ioData: *AudioBufferList) -> OSStatus #foreign AudioToolbox;
+ExtAudioFileDispose :: (inExtAudioFile: ExtAudioFileRef) -> OSStatus #foreign AudioToolbox;
 
 // HAL Functions (Hardware level)
 AudioObjectGetPropertyData :: (
