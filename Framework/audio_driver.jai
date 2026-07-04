@@ -79,7 +79,6 @@ MAX_VOICES :: 32;
 
         return 0; // noErr
     }
-} // #if MACOS
 
 Audio_System :: struct {
     uint: AudioUnit;
@@ -231,3 +230,5 @@ set_master_volume :: (sys: *Audio_System, volume: float32) {
 is_playing :: (voice: *Voice) -> bool {
     return voice.playing;
 }
+
+} // #if MACOS
