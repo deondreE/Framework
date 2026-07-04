@@ -1,10 +1,6 @@
 #import "Basic";
 #import "Window_Creation";
 #import "Input";
-#import "Metal";
-#import "Objective_C";
-#import "Objective_C/AppKit";
-#import "macOS";
 #import "System";
 #import "String";
 #import "File";
@@ -16,8 +12,15 @@
 #load "mouse_input.jai";
 #load "texture_loading.jai";
 
-#load "macos_audio.jai";
-#load "audio_driver.jai";
+#if OS == .MACOS {
+    #import "Metal";
+    #import "Objective_C";
+    #import "Objective_C/AppKit";
+    #import "macOS";
+
+    #load "macos_audio.jai";
+    #load "audio_driver.jai";
+}
 
 Uniforms :: struct {
     time: float32;

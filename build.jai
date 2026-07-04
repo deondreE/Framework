@@ -1,9 +1,61 @@
 #import "Basic";
 #import "Compiler";
+#import "File_Utilities";
 #import "File";
+#import "String";
 #import "Process";
 
-copy_file :: (from: string, to: string) -> bool {
+copy_directory_l :: (source: string, dest: string) -> bool {
+    Args :: struct {
+        source_name: string;
+        dest_root:   string;
+        success:     bool = true;
+    }
+    
+    args: Args;
+    args.source_name = source;
+    args.dest_root   = dest;
+
+    visitor :: (info: *File_Visit_Info, args: *Args) {
+        if !args.success return;
+
+        relative_path := info.full_name;
+        if starts_with(relative_path, args.source_name) {
+            advance(*relative_path, args.source_name.count);
+        }
+        
+        if relative_path.count > 0 && (relative_path[0] == #char "/" || relative_path[0] == #char "\\") {
+            advance(*relative_path, 1);
+        }
+
+        dest_path := join(args.dest_root, "/", relative_path);
+        defer free(dest_path);
+
+        if info.is_directory {
+            if !make_directory_if_it_does_not_exist(dest_path, recursive=true) {
+                args.success = false;
+                info.descend_into_directory = false;
+            }
+        } else {
+            parent_dir := path_strip_filename(dest_path);
+            if !make_directory_if_it_does_not_exist(parent_dir, recursive=true) {
+                args.success = false;
+                return;
+            }
+
+            if !copy_file(info.full_name, dest_path) {
+                args.success = false;
+            }
+        }
+    }
+
+    if !make_directory_if_it_does_not_exist(dest, recursive=true) return false;
+    success := visit_files(source, recursive=true, *args, visitor, visit_directories=true);
+    
+    return success && args.success;
+}
+
+copy_file_l :: (from: string, to: string) -> bool {
     data, success := read_entire_file(from);
     if !success {
         print("Error: could not read %.\n", from);
@@ -25,14 +77,20 @@ copy_file :: (from: string, to: string) -> bool {
 
     print("Staging Metal shader source for runtime compilation...\n");
 
-    if !copy_file("Shaders/default.metal", "bin/default.metal") {
+    if !copy_file_l("Shaders/default.metal", "bin/default.metal") {
         return;
     }
 
-    // @Todo: Make this copy folder
-    if !copy_file("Assets/icon.png", "bin/icon.png") {
-        return;
+    // @INFO: Copy Assets
+    print("Copying asset folders...");
+    if !copy_directory_l("Assets", "bin/Assets") {
+        print("Error: Could not create Assets folder. \n");
     }
+    
+    // @Todo: Make this copy folder
+//    if !copy_file("Assets/icon.png", "bin/icon.png") {
+//       return;
+//    }
 
     w := compiler_create_workspace("Metal Framework");
     if !w return;
