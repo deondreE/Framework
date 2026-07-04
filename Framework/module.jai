@@ -11,6 +11,7 @@
 #load "quad_batch.jai";
 #load "mouse_input.jai";
 #load "texture_loading.jai";
+#load "job_system.jai";
 
 #if OS == .MACOS {
     #import "Metal";

@@ -18,16 +18,10 @@ Simple module for creating application for MACOS in jai using metal.
   * Split View
 - [ ] Gizmos
   * Togglable interactions
-- [ ] Native Sound Buffer
-  * No lib native sound buffer
-  * input sound into stream
-- [ ] Hot Reloading shaders
-- [ ] Threads
 - [ ] KEYBOARD
 - [x] Mouse
 - [ ] Controller
+- [x] Audio
+- [ ] Job System -- Threading solution
 
-## DEEP IN THE DEPTHS
-- [ ] Windows
-- [ ] Linux
-- [ ] 3D
+- [ ] Inputting shaders into the renderer, attaching them to a given render pass. User creates shader then it creates all the things for a pass.
