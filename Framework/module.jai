@@ -163,8 +163,8 @@ init_framework :: () -> bool {
         return false;
     }
 
-    //////////////////
-    // Default pipeline state
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // default pipeline state
 
     pipeline_desc := objc_init(objc_alloc(MTLRenderPipelineDescriptor));
     pipeline_desc.setVertexFunction(pipeline_desc, vertex_fn);

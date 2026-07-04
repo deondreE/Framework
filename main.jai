@@ -57,7 +57,7 @@ render_pass :: () {
     screen_uniforms: Screen_Uniforms;
     screen_uniforms.screen_size = .[cast(float32)window_width, cast(float32)window_height];
 
-    //////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Draw calls
     encoder.setRenderPipelineState(encoder, xx pipeline_state);
     encoder.setVertexBuffer_offset_atIndex(encoder, xx vertex_buffer, 0, 0);
@@ -66,7 +66,7 @@ render_pass :: () {
     encoder.setVertexBytes_length_atIndex(encoder, *screen_uniforms, size_of(Screen_Uniforms), 3);
     encoder.drawPrimitives_vertexStart_vertexCount_instanceCount(encoder, .MTLPrimitiveTypeTriangle, 0, 3, xx instances.count);
 
-    ///// 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Panel interaction test
     panel_x, panel_y, panel_w, panel_h : float32 = 20, 120, 200, 60;
     panel_color := float32.[0.2, 0.4, 0.9, 1.0];
