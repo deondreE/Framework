@@ -16,6 +16,9 @@
 #load "mouse_input.jai";
 #load "texture_loading.jai";
 
+#load "macos_audio.jai";
+#load "audio_driver.jai";
+
 Uniforms :: struct {
     time: float32;
 }
@@ -62,6 +65,7 @@ Framework :: struct {
     quad_vertex_buffers: [MAX_FRAMES_IN_FLIGHT] *MTLBuffer;
     quad_vertex_buffer_capacity: int;
 
+    // TODO: font should be able to be multiple fonts.
     font: Font_Atlas;
     white_texture: *MTLTexture;
 

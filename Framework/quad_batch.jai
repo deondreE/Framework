@@ -12,14 +12,14 @@ Screen_Uniforms :: struct {
     screen_size: [2] float32;
 }
 
-Vector2 :: struct {
-    x,y: float32;
-}
-
 Quad_Draw_Range :: struct {
     texture: *MTLTexture;
     start: int;
     count: int;
+}
+
+Vector2 :: struct {
+    x,y: float32;
 }
 
 quad_batch: [..] Quad_Vertex;
@@ -27,9 +27,8 @@ quad_draw_ranges: [..] Quad_Draw_Range;
 
 make_white_texture :: () -> *MTLTexture {
     using global_framework;
-
     desc := MTLTextureDescriptor.texture2DDescriptorWithPixelFormat_width_height_mipmapped(
-        .MTLPixelFormatRGBA8Unorm, 1, 1, NO);
+        .MTLPixelFormatRGBA8Unorm, 1, 1, xx 0);
     desc.setUsage(desc, .MTLTextureUsageShaderRead);
 
     tex : *MTLTexture = xx (device.newTextureWithDescriptor(device, desc));
@@ -60,7 +59,7 @@ QUAD_BUFFER_INITIAL_CAPACITY :: 4096;
 
 ensure_quad_buffer_capacity :: (needed_verts: int) {
     using global_framework;
-
+    
     if needed_verts <= quad_vertex_buffer_capacity return;
 
     new_capacity := max(needed_verts, quad_vertex_buffer_capacity * 2);
@@ -68,7 +67,7 @@ ensure_quad_buffer_capacity :: (needed_verts: int) {
 
     for i : 0..MAX_FRAMES_IN_FLIGHT - 1 {
         quad_vertex_buffers[i] = device.newBufferWithLength_options(
-            device, xx (size_of(Quad_Vertex) * new_capacity), xx 0);
+            global_framework.device, xx (size_of(Quad_Vertex) * new_capacity), xx 0);
     }
 
     quad_vertex_buffer_capacity = new_capacity;
