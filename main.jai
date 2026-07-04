@@ -4,49 +4,38 @@
 #import "Objective_C";
 #import "Thread";
 
-// STUB: This is temp values for testing the job system;
-MyTaskData :: struct {
-    name: string;
-    id: int;
-}
-
-my_test_proc :: (group: *Job_Group, payload: *void) {
-    data := cast(*MyTaskData) payload;
-
-    lock(*global_job_system.queue_mutex);
-    print("Working on task %: %\n", data.id, data.name);
-    unlock(*global_job_system.queue_mutex);
-}
-
-job_test :: () {
-    job_system_init();
-    defer job_system_shutdown();
-
-    group: Job_Group;
-    task_data_list: [10] MyTaskData;
-    
-    for i: 1..9 {
-        task_data_list[i].id = i + 1;
-        task_data_list[i].name = "Texture Load";
-
-        push_job(my_test_proc, *task_data_list[i], *group);
-    }
-
-    until_for_group(*group);
-    print("All 10 jobs are done!");
-}
-
 main :: () {
     if !init_framework() {
         print("Failed to init framework.\n");
         return;
     }
+    job_system_init();
+    audio_sys := audio_init();
 
+    group: Job_Group;
+    
+    bg_sound_1: Sound;
+    success_1: bool;
+
+    task_1: Load_Sound_Task;
+    task_1.path = "Assets/Sound/Pickup5.wav";
+    task_1.target_sound = *bg_sound_1;
+    task_1.status_success = *success_1;
+
+    push_job(load_sound_job_proc, *task_1, *group);
+
+    print("Background loading started... doing other things.\n");
+
+    until_for_group(*group);
+
+    if success_1 {
+        print("Sound loaded! Playing now.\n");
+        play_sound(audio_sys, *bg_sound_1, volume=0.7, looping=true);
+    }
+    
     print("Framework runing...");
 
-    job_test();
-    
-     while !global_framework.quit {
+    while !global_framework.quit {
         reset_temporary_storage();
 
         pool := objc_init(objc_alloc(objc_getClass("NSAutoReleasePool")));
@@ -58,6 +47,9 @@ main :: () {
         release_pool = xx objc_msgSend;
         release_pool(pool, sel_registerName("release"));
     }
+    
+    audio_shutdown(audio_sys);
+    job_system_shutdown();
 }
 
 render_pass :: () {

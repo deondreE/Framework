@@ -2,10 +2,30 @@
 #import "Thread";
 #import "Math";
 
+Load_Sound_Task :: struct {
+    path: string;
+    target_sound: *Sound;
+    status_success: *bool;
+    on_complete: () -> void = null;
+}
+
+load_sound_job_proc :: (group: *Job_Group, payload: *void) {
+    task := cast(*Load_Sound_Task) payload;
+
+    sound, success := load_sound_from_file(task.path);
+    task.target_sound.* = sound;
+    task.status_success.* = success;
+
+    if task.on_complete task.on_complete();
+
+    // NOTE: If task was allocated with New(), free it here or wait_for_group.
+}
+
 Sound :: struct {
     samples: []float32;
     channels: int;
     sample_rate: int;
+    loaded: bool;
 }
 
 Voice :: struct {
@@ -21,67 +41,74 @@ MAX_VOICES :: 32;
 
 #if OS == .MACOS {
     audio_render_callback :: (
-        inRefCon: *void,
-        ioActionFlag: *AudioUnitRenderActionFlags,
-        inTimeStamp: *AudioTimeStamp,
-        inBusNumber: u32,
-        inNumberFrames: u32,
-        ioData: *AudioBufferList,
-    ) -> OSStatus #c_call {
+    inRefCon: *void,
+    ioActionFlag: *AudioUnitRenderActionFlags, // NOTE: CoreAudio usually names this ioActionFlags
+    inTimeStamp: *AudioTimeStamp,
+    inBusNumber: u32,
+    inNumberFrames: u32,
+    ioData: *AudioBufferList
+) -> OSStatus #c_call {
+    push_context {
         sys := cast(*Audio_System)inRefCon;
 
-        // CoreAudio expects non-interleaved or interleaved based on flags.
-        // We configured for interleaved Stereo (2 channels) below.
         out_buffer := cast(*float32) ioData.mBuffers[0].mData;
 
-        // DEBUG: Clear the output buffer first
         memset(out_buffer, 0, inNumberFrames * 2 * size_of(float32));
         
-        // TODO: this could be a new thread and stream the updates.
         lock(*sys.mutex);
         defer unlock(*sys.mutex);
 
         for * voice: sys.voices {
-            if !voice.playing || !voice.sound continue;
+            // Sound must be valid and finished loading
+            if !voice.playing || !voice.sound || !voice.sound.loaded continue;
 
             sound := voice.sound;
 
             for frame: 0..inNumberFrames-1 {
+                // Check if we hit the end of the sample buffer
                 if voice.position >= sound.samples.count {
                     if voice.looping {
                         voice.position = 0;
                     } else {
-                        voice.position = false;
+                        voice.playing = false; // FIX: stop the voice
                         break;
                     }
                 }
 
-                // Simple Stero Mix
-                // Assuming sound.channels is 1 (mono) or 2 (Stero)
                 left_sample: float32 = 0;
                 right_sample: float32 = 0;
 
+                // Simple Stereo Mix
                 if sound.channels == 2 {
-                    left_sample = sound.samples[voice.position] * voice.volume * sys.master_volume;
-                    right_sample = sound.samples[voice.position + 1] * voice.volume * sys.master_volume;
-                    voice.position += 2;
+                    // Safety check to ensure we don't read out of bounds on a trailing single sample
+                    if voice.position + 1 < sound.samples.count {
+                        left_sample = sound.samples[voice.position] * voice.volume * sys.master_volume;
+                        right_sample = sound.samples[voice.position + 1] * voice.volume * sys.master_volume;
+                        voice.position += 2;
+                    } else {
+                        voice.playing = false;
+                        break;
+                    }
                 } else {
+                    // Mono source
                     s := sound.samples[voice.position] * voice.volume * sys.master_volume;
-                    left_sample = s * (1.0 - voice.pan);
+                    left_sample  = s * (1.0 - voice.pan);
                     right_sample = s * voice.pan;
                     voice.position += 1;
                 }
 
-                out_buffer[frame * 2] += left_sample;
-                out_buffer[frame * 2  + 1] += right_sample;
+                // Add to output buffer (accumulative mixing)
+                out_buffer[frame * 2]     += left_sample;
+                out_buffer[frame * 2 + 1] += right_sample;
             }
         }
-
-        return 0; // noErr
     }
 
+    return 0; // noErr
+}
+
 Audio_System :: struct {
-    uint: AudioUnit;
+    unit: AudioUnit;
     voices: [MAX_VOICES] Voice;
     mutex: Mutex;
     master_volume: float32 = 1.0;
@@ -89,12 +116,12 @@ Audio_System :: struct {
 
 audio_init :: () -> *Audio_System {
     sys := New(Audio_System);
-    init_mutex(*sys.mutex);
+    init(*sys.mutex);
 
     desc: AudioComponentDescription;
-    desc.componentType = kAudioType_Output;
+    desc.componentType = kAudioUnitType_Output;
     desc.componentSubType = kAudioUnitSubType_DefaultOutput;
-    desc.componentManufacturer = kAudioManufacturer_Apple;
+    desc.componentManufacturer = kAudioUnitManufacturer_Apple;
 
     comp := AudioComponentFindNext(null, *desc);
     if !comp return null;
@@ -105,7 +132,7 @@ audio_init :: () -> *Audio_System {
     stream_desc: AudioStreamBasicDescription;
     stream_desc.mSampleRate = 44100.0;
     stream_desc.mFormatID = kAudioFormatLinearPCM;
-    stream_desc.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFlagIsPacked;
+    stream_desc.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
     stream_desc.mFramesPerPacket = 1;
     stream_desc.mChannelsPerFrame = 2;
     stream_desc.mBitsPerChannel = 32;
@@ -128,10 +155,17 @@ audio_init :: () -> *Audio_System {
 }
 
 audio_shutdown :: (sys: *Audio_System) {
+    if !sys return;
+    
     AudioOutputUnitStop(sys.unit);
     AudioUnitUninitialize(sys.unit);
     AudioComponentInstanceDispose(sys.unit);
-    destroy_mutex(*sys.mutex);
+
+    lock(*sys.mutex);
+    for * sys.voices it.playing = false;
+    unlock(*sys.mutex);
+    
+    destroy(*sys.mutex);
     free(sys);
 }
 
@@ -149,22 +183,22 @@ load_sound_from_file :: (path: string) -> Sound, bool {
     defer ExtAudioFileDispose(ext_file);
 
     file_format: AudioStreamBasicDescription;
-    prop_size := cast(u32) size_of(AudoStreamBasicDescription);
-    ExtAudioFileGetProperty(ext_file, kExtFileProperty_FileDataFormat, *prop_size, *file_format);
+    prop_size := cast(u32) size_of(AudioStreamBasicDescription);
+    ExtAudioFileGetProperty(ext_file, kExtAudioFileProperty_FileDataFormat, *prop_size, *file_format);
 
     client_format: AudioStreamBasicDescription;
     client_format.mSampleRate = file_format.mSampleRate;
     client_format.mFormatID = kAudioFormatLinearPCM;
     client_format.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
     client_format.mBitsPerChannel   = 32;
-    client_format.mChannelPerFrame = file_format.mChannelPerFrame;
+    client_format.mChannelsPerFrame = file_format.mChannelsPerFrame;
     client_format.mFramesPerPacket = 1;
     client_format.mBytesPerFrame = client_format.mChannelsPerFrame * 4;
     client_format.mBytesPerPacket = client_format.mBytesPerFrame;
 
     total_frames: s64;
     frames_prop_size := cast(u32) size_of(s64);
-    ExtAudioFileSetProperty(ext_file, kExtFileProperty_FileLengthFrames, *frames_prop_size, *total_frames);
+    ExtAudioFileSetProperty(ext_file, kExtAudioFileProperty_FileLengthFrames, frames_prop_size, *total_frames);
 
     total_samples := total_frames * client_format.mChannelsPerFrame;
     sound.samples = NewArray(total_samples, float32);
@@ -177,7 +211,7 @@ load_sound_from_file :: (path: string) -> Sound, bool {
     buffer_list.mBuffers[0].mDataByteSize = cast(u32)(total_samples * size_of(float32));
     buffer_list.mBuffers[0].mData = sound.samples.data;
 
-    frame_to_read := cast(u32) total_frame;
+    frame_to_read := cast(u32) total_frames;
     status = ExtAudioFileRead(ext_file, *frame_to_read, *buffer_list);
 
     if status != 0 {
