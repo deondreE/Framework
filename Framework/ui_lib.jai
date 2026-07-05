@@ -5,8 +5,15 @@ Layout_Type :: enum s32 {
     Horizontal;
 }
 
+Layout_Alignment :: enum s32 {
+    Start;
+    Center;
+    End;
+}
+
 Layout :: struct {
     type: Layout_Type;
+    alignment: Layout_Alignment = .Start;
     pos: Vector2;
     size: Vector2;
     cursor: Vector2;
@@ -33,23 +40,48 @@ layout_begin_child :: (parent: *Layout, type: Layout_Type, w: float32, h: float3
 }
 
 // NOTE: Reserves required space for the ui layout that this is.
-layout_reserve_space :: (l: *Layout, w: float32, h: float32) -> (x: float32, y: float32) {
-    res_x := l.cursor.x;
-    res_y := l.cursor.y;
+// INFO: offset = (TotalAvailible - ElementSize) X Factor
+layout_reserve_space :: (l: *Layout, w: float32, h: float32) -> (x: float32, y: float32, final_w: float32, final_h: float32){
     final_w := w;
     final_h := h;
 
-    if l.type == {
-        case .Vertical;
-          // INFO If user passes 0 or -1, auto-fill to layout width;
-          if w <= 0 then final_w = (l.pos.x + l.size.x) - l.padding - res_x;
-          l.cursor.y += h + l.spacing;
-        case .Horizontal;
-          if h <= 0 then final_h = (l.pos.y + l.size.y) - l.padding - res_y;
-          l.cursor.x += w + l.spacing;
+    if l.type == .Vertical && w <= 0 {
+        final_w = l.size.x - (l.padding * 2);
+    } else if l.type == .Horizontal && h <= 0 {
+        final_h = l.size.y - (l.padding * 2);
     }
 
-    return res_x, res_y;
+    offset_x: float32 = 0;
+    offset_y: float32 = 0;
+    
+    if l.type == {
+        case .Vertical;
+        if l.alignment == {
+            case .Center;
+            offset_x = (l.size.x - final_w) * 0.5 - l.padding;
+            case .End;
+            offset_y = (l.size.x - final_w) - (l.padding * 2);
+          }
+        case .Horizontal;
+        if l.alignment == {
+            case .Center;
+            offset_x = (l.size.y - final_h) * 0.5 - l.padding;
+            case .End;
+            offset_y = (l.size.y - final_h) - (l.padding * 2);
+        }
+    }
+
+    res_x := l.cursor.x + offset_x;
+    res_y := l.cursor.y + offset_y;
+
+    if l.type == {
+        case .Vertical;
+        l.cursor.y += final_h + l.spacing;
+        case .Horizontal;
+        l.cursor.x += final_w + l.spacing;
+    }
+
+    return res_x, res_y, final_w, final_h;
 }
 
 layout_end :: (layout: *Layout) {

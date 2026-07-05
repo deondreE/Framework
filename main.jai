@@ -70,7 +70,7 @@ render_pass :: () {
     screen_uniforms: Screen_Uniforms;
     screen_uniforms.screen_size = .[cast(float32)window_width, cast(float32)window_height];
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Draw calls
     encoder.setRenderPipelineState(encoder, xx pipeline_state);
     encoder.setVertexBuffer_offset_atIndex(encoder, xx vertex_buffer, 0, 0);
@@ -79,58 +79,53 @@ render_pass :: () {
     encoder.setVertexBytes_length_atIndex(encoder, *screen_uniforms, size_of(Screen_Uniforms), 3);
     encoder.drawPrimitives_vertexStart_vertexCount_instanceCount(encoder, .MTLPrimitiveTypeTriangle, 0, 3, xx instances.count);
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // Panel interaction test
+    // TODO: Make the layout be able to change the native cursor type.
+    screen: Layout;
+    layout_begin(*screen, 0, 0, cast(float32)window_width, cast(float32)window_height);
 
-    test_layout: Layout;
-    test_layout.type = .Vertical;
-    test_layout.spacing = 10.0;
+    settings_menu := layout_begin_child(*screen, .Vertical, 300, 500);
+    settings_menu.alignment = .Center;
 
-    layout_begin(*test_layout, 500, 500, 50, 50);
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // NOTE: I Feel like the layout is not working properly
 
-    tx, ty := layout_reserve_space(*test_layout, 200, 30);
-    draw_text("Setting Menu", tx, ty, cast(float32)window_width, cast(float32)window_height, 1.0, 300);
+    x, y, w, h := layout_reserve_space(*settings_menu, 300, 500);
+    draw_rect(x, y, w, h, .[1, 1, 1, 1]);
+
     
-    layout_end(*test_layout);
-    
-    panel_x, panel_y, panel_w, panel_h : float32 = 20, 120, 200, 60;
-    panel_color := float32.[0.2, 0.4, 0.9, 1.0];
+    qx, qy, qw, qh := layout_reserve_space(*settings_menu, 100, 40);
+    panel_color: [4] float32 = .[1, 0, 0, 1];
+    if mouse_over_rect(mouse, qx, qy, qw, qh) {
+        panel_color = float32.[0.2, 0.4, 0.9, 1.0];
 
-    if mouse_over_rect(mouse, panel_x, panel_y, panel_w, panel_h) {
-        panel_color = .[0.3, 0.55, 1.0, 1.0];
         if mouse.left_pressed {
-            print("Panel clicked at %, %\n", mouse.x, mouse.y);
+            print("Panel clicked %, %\n", mouse.x, mouse.y);
         }
     }
+    draw_rect(qx, qy, qw, qh, panel_color);
 
-    draw_rect(panel_x, panel_y, panel_w, panel_h, panel_color);
-    // draw_rect(20, 120, 200, 60, .[0.2, 0.4, 0.9, 1.0]); // solid blue-ish panel, pixel-space
+    tx, ty, tw, th := layout_reserve_space(*settings_menu, 100, 20);
+    draw_text("Settings Menu", tx, ty, cast(float)window_width, cast(float)window_height, 1.0, 300);
 
+    layout_end(*settings_menu);
+    layout_end(*screen);
+    
     // --- draw_line tests ---
 
     // Thick diagonal line, to check the perpendicular-offset math at an angle
-    draw_line(500, 100, 700, 300, 8.0, .[1.0, 0.3, 0.3, 1.0]);
-    draw_line(500, 300, 700, 100, 8.0, .[0.3, 1.0, 0.3, 1.0]);
+    //draw_line(500, 100, 700, 300, 8.0, .[1.0, 0.3, 0.3, 1.0]);
+    //draw_line(500, 300, 700, 100, 8.0, .[0.3, 1.0, 0.3, 1.0]);
 
     // Quadratic — one control point pulling the curve upward
-    draw_quadratic_bezier(
-        Vector2.{750, 300}, Vector2.{850, 100}, Vector2.{950, 300},
-        3.0, .[0.4, 0.8, 1.0, 1.0]);
-
-    // Cubic — S-curve, classic case for testing two independent control points
-    draw_cubic_bezier(
-        Vector2.{750, 350}, Vector2.{820, 250}, Vector2.{880, 450}, Vector2.{950, 350},
-        3.0, .[1.0, 0.6, 0.9, 1.0]);
-
-    icon_texture, ok := load_texture("Assets/icon.png");
-    if ok {
-        draw_textured_rect(400, 400, 64, 64, .[0,0], .[1,1], icon_texture);
-    }
+    //*draw_quadratic_bezier(
+    //    Vector2.{750, 300}, Vector2.{850, 100}, Vector2.{950, 300},
+    //    3.0, .[0.4, 0.8, 1.0, 1.0]);
+    //    // Cubic — S-curve, classic case for testing two independent control points
+    //draw_cubic_bezier(
+    //    Vector2.{750, 350}, Vector2.{820, 250}, Vector2.{880, 450}, Vector2.{950, 350},
+    // 3.0, .[1.0, 0.6, 0.9, 1.0]);
 
     flush_quad_batch(encoder);
-
-    draw_text("Jai Metal Framework", 20, 40, cast(float32)window_width, cast(float32)window_height, 1.0, cast(float32)window_width - 40);
-    draw_text("Second label, wraps if too long to fit on one line here", 20, 80, cast(float32)window_width, cast(float32)window_height, 1.0, 300);
     flush_text_batch(encoder);
 
     encoder.endEncoding(encoder);
