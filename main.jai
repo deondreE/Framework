@@ -81,31 +81,27 @@ render_pass :: () {
 
     // TODO: Make the layout be able to change the native cursor type.
     screen: Layout;
-    layout_begin(*screen, 0, 0, cast(float32)window_width, cast(float32)window_height);
+    layout_begin(*screen, 0, 0, cast(float32)window_width, cast(float32)window_height, *mouse);
 
     settings_menu := layout_begin_child(*screen, .Vertical, 300, 500);
     settings_menu.alignment = .Center;
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // NOTE: I Feel like the layout is not working properly
+    bg_r := layout_reserve_space(*settings_menu, 0, 0); 
+    draw_rect(bg_r.x, bg_r.y, bg_r.w, bg_r.h, .[0.2, 0.2, 0.2, 1.0]);
 
-    x, y, w, h := layout_reserve_space(*settings_menu, 300, 500);
-    draw_rect(x, y, w, h, .[1, 1, 1, 1]);
-
-    
-    qx, qy, qw, qh := layout_reserve_space(*settings_menu, 100, 40);
+    tr := layout_reserve_space(*settings_menu, 100, 40);
     panel_color: [4] float32 = .[1, 0, 0, 1];
-    if mouse_over_rect(mouse, qx, qy, qw, qh) {
-        panel_color = float32.[0.2, 0.4, 0.9, 1.0];
 
+    if mouse_over_rect(mouse, tr) { // Using the Rect 'tr' directly
+        panel_color = .[0.2, 0.4, 0.9, 1.0];
         if mouse.left_pressed {
             print("Panel clicked %, %\n", mouse.x, mouse.y);
         }
     }
-    draw_rect(qx, qy, qw, qh, panel_color);
+    draw_rect(tr.x, tr.y, tr.w, tr.h, panel_color);
 
-    tx, ty, tw, th := layout_reserve_space(*settings_menu, 100, 20);
-    draw_text("Settings Menu", tx, ty, cast(float)window_width, cast(float)window_height, 1.0, 300);
+    txt_r := layout_reserve_space(*settings_menu, 100, 20);
+    draw_text("Settings Menu", txt_r.x, txt_r.y, cast(float32)window_width, cast(float32)window_height, 1.0, 300);
 
     layout_end(*settings_menu);
     layout_end(*screen);
