@@ -24,9 +24,9 @@ kAudioUnitProperty_StreamFormat      :: 8;
 kAudioUnitProperty_SetRenderCallback :: 23;
 kAudioUnitProperty_MaximumFramesPerSlice :: 14;
 
-kExtAudioFileProperty_FileDataFormat :: 1;
-kExtAudioFileProperty_ClientDataFormat :: 2;
-kExtAudioFileProperty_FileLengthFrames :: 3;
+kExtAudioFileProperty_FileDataFormat   : u32 : #run fourcc("ffmt");
+kExtAudioFileProperty_ClientDataFormat : u32 : 0x63666D74; // 'cfmt' = 1668049524
+kExtAudioFileProperty_FileLengthFrames : u32 : 0x2366726D; // '#frm' -- note the '#'!
 
 kCFStringEncodingUTF8 :: 0x80000100;
 
@@ -40,6 +40,7 @@ kAudioFormatFlagIsSignedInteger  : u32 : (1 << 2);
 kAudioFormatFlagIsPacked         : u32 : (1 << 3);
 kAudioFormatFlagIsAlignedHigh    : u32 : (1 << 4);
 kAudioFormatFlagIsNonInterleaved : u32 : (1 << 5);
+kAudioFormatFlagsNativeEndian: u32 : 0;
 
 kAudioObjectSystemObject        : AudioObjectID : 1;
 kAudioObjectPropertyScopeGlobal  : u32 : #run fourcc("glob");
@@ -64,8 +65,9 @@ AudioStreamBasicDescription :: struct {
     mBytesPerFrame:    u32;
     mChannelsPerFrame: u32;
     mBitsPerChannel:   u32;
-    mReserved:         u32 = 0;
+    mReserved:         u32;
 }
+#assert size_of(AudioStreamBasicDescription) == 40;
 
 AudioObjectPropertyAddress :: struct {
     mSelector: u32;
@@ -101,20 +103,20 @@ AudioBuffer :: struct {
     mData:           *void;
 }
 
-// Note: mBuffers is technically a variable length array in C. 
-// For interleaved audio, you access index 0. 
+// Note: mBuffers is technically a variable length array in C.
+// For interleaved audio, you access index 0.
 // For non-interleaved, you must offset the pointer based on mNumberBuffers.
 AudioBufferList :: struct {
     mNumberBuffers: u32;
-    mBuffers:       [1] AudioBuffer; 
+    mBuffers:       [1] AudioBuffer;
 }
 
 AURenderCallback :: #type (
-    inRefCon:       *void, 
-    ioActionFlags:  *AudioUnitRenderActionFlags, 
-    inTimeStamp:    *AudioTimeStamp, 
-    inBusNumber:    u32, 
-    inNumberFrames: u32, 
+    inRefCon:       *void,
+    ioActionFlags:  *AudioUnitRenderActionFlags,
+    inTimeStamp:    *AudioTimeStamp,
+    inBusNumber:    u32,
+    inNumberFrames: u32,
     ioData:         *AudioBufferList
 ) -> OSStatus #c_call;
 
@@ -157,6 +159,32 @@ AudioChannelLayout :: struct {
     mChannelDescriptions: [1] AudioChannelDescription;
 }
 
+// ── Audio Queue Services ────────────────────────────────────────────────────
+
+AudioQueueRef :: *void;
+
+// AudioQueueBuffer matches the C layout exactly (pointers 8-byte aligned on 64-bit).
+AudioQueueBuffer :: struct {
+    mAudioDataBytesCapacity: u32;
+    mAudioData: *void;
+    mAudioDataByteSize: u32;
+    mUserData: *void;
+    mPacketDescriptionCapacity: u32;
+    mPacketDescriptions: *void;
+    mPacketDescriptionCount: u32;
+}
+#assert size_of(AudioQueueBuffer) == 56;
+
+AudioQueueBufferRef :: *AudioQueueBuffer;
+
+AudioQueueOutputCallback :: #type (
+    inUserData: *void,
+    inAQ:       AudioQueueRef,
+    inBuffer:   AudioQueueBufferRef
+) -> void #c_call;
+
+// ── ExtAudioFile ─────────────────────────────────────────────────────────────
+
 ExtAudioFileRef :: *void;
 
 ExtAudioFileOpenURL :: (inURL: CFURLRef, outExtAudioFile: *ExtAudioFileRef) -> OSStatus #foreign AudioToolbox;
@@ -176,11 +204,38 @@ AudioObjectGetPropertyData :: (
 ) -> OSStatus #foreign CoreAudio;
 
 AudioObjectPropertyListenerProc :: #type (
-    inObjectID: AudioObjectID, 
-    inNumberAddresses: u32, 
-    inAddresses: *AudioObjectPropertyAddress, 
+    inObjectID: AudioObjectID,
+    inNumberAddresses: u32,
+    inAddresses: *AudioObjectPropertyAddress,
     inClientData: *void
 ) -> OSStatus #c_call;
+
+AudioQueueNewOutput :: (
+    inFormat:              *AudioStreamBasicDescription,
+    inCallbackProc:        AudioQueueOutputCallback,
+    inUserData:            *void,
+    inCallbackRunLoop:     *void,   // pass null → AudioQueue creates its own thread
+    inCallbackRunLoopMode: *void,   // pass null
+    inFlags:               u32,     // must be 0
+    outAQ:                 *AudioQueueRef
+) -> OSStatus #foreign AudioToolbox;
+
+AudioQueueAllocateBuffer :: (
+    inAQ:            AudioQueueRef,
+    inBufferByteSize: u32,
+    outBuffer:       *AudioQueueBufferRef
+) -> OSStatus #foreign AudioToolbox;
+
+AudioQueueEnqueueBuffer :: (
+    inAQ:            AudioQueueRef,
+    inBuffer:        AudioQueueBufferRef,
+    inNumPacketDescs: u32,
+    inPacketDescs:   *void
+) -> OSStatus #foreign AudioToolbox;
+
+AudioQueueStart   :: (inAQ: AudioQueueRef, inStartTime: *void) -> OSStatus #foreign AudioToolbox;
+AudioQueueStop    :: (inAQ: AudioQueueRef, inImmediate: bool)  -> OSStatus #foreign AudioToolbox;
+AudioQueueDispose :: (inAQ: AudioQueueRef, inImmediate: bool)  -> OSStatus #foreign AudioToolbox;
 
 AudioObjectAddPropertyListener :: (
     inObjectID: AudioObjectID,

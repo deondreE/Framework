@@ -9,28 +9,15 @@ main :: () {
         print("Failed to init framework.\n");
         return;
     }
-    job_system_init();
     audio_sys := audio_init();
 
-    group: Job_Group;
-    
-    bg_sound_1: Sound;
-    success_1: bool;
-
-    task_1: Load_Sound_Task;
-    task_1.path = "Assets/Sound/Pickup5.wav";
-    task_1.target_sound = *bg_sound_1;
-    task_1.status_success = *success_1;
-
-    push_job(load_sound_job_proc, *task_1, *group);
-
     print("Background loading started... doing other things.\n");
-
-    until_for_group(*group);
-
+    
+    bg_sound_1, success_1 := load_sound_from_file("Assets/Sounds/Pickup5.wav");
     if success_1 {
-        print("Sound loaded! Playing now.\n");
         play_sound(audio_sys, *bg_sound_1, volume=0.7, looping=true);
+    } else {
+        print("FAILED TO LOAD SOUND\n");
     }
     
     print("Framework runing...");
@@ -49,7 +36,6 @@ main :: () {
     }
     
     audio_shutdown(audio_sys);
-    job_system_shutdown();
 }
 
 render_pass :: () {
@@ -95,6 +81,18 @@ render_pass :: () {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Panel interaction test
+
+    test_layout: Layout;
+    test_layout.type = .Vertical;
+    test_layout.spacing = 10.0;
+
+    layout_begin(*test_layout, 500, 500, 50, 50);
+
+    tx, ty := layout_reserve_space(*test_layout, 200, 30);
+    draw_text("Setting Menu", tx, ty, cast(float32)window_width, cast(float32)window_height, 1.0, 300);
+    
+    layout_end(*test_layout);
+    
     panel_x, panel_y, panel_w, panel_h : float32 = 20, 120, 200, 60;
     panel_color := float32.[0.2, 0.4, 0.9, 1.0];
 

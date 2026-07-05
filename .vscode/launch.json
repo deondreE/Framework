@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug framework_demo",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/framework_demo",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "build",
+            "stopOnEntry": false,
+            "sourceLanguages": ["jai"]
+        }
+    ]
+}

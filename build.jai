@@ -98,6 +98,7 @@ copy_file_l :: (from: string, to: string) -> bool {
     options := get_build_options(w);
     options.output_executable_name = "framework_demo";
     options.output_path = "bin/";
+    options.backend = .LLVM;
 
     import_paths: [..] string;
     array_add(*import_paths, ..options.import_path);

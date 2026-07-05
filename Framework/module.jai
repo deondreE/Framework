@@ -12,6 +12,7 @@
 #load "mouse_input.jai";
 #load "texture_loading.jai";
 #load "job_system.jai";
+#load "ui_lib.jai";
 
 #if OS == .MACOS {
     #import "Metal";
@@ -78,6 +79,8 @@ Framework :: struct {
 
     quit := false;
     mouse: Mouse_State;
+
+    audio_system: *Audio_System;
 }
 
 global_framework: Framework;
@@ -286,6 +289,12 @@ init_framework :: () -> bool {
     array_add(*instances, InstanceData.{ .[ 0.0, -150.0], 2.5, 0.0 });
 
     start_time = current_time_monotonic();
+
+    // Audio must be initialized AFTER the window exists so NSApplication is running.
+    audio_system = audio_init();
+    if !audio_system {
+        print("Warning: audio_init failed — continuing without audio.\n");
+    }
 
     return true;
 }
