@@ -155,3 +155,12 @@ draw_cubic_bezier :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, thickn
         prev = curr;
     }
 }
+
+// Draw one frame from a sprite sheet at pixel position (x, y) with the given display size.
+// `frame_index` is 0-based, ordered left-to-right then top-to-bottom.
+draw_sprite :: (sheet: Sprite_Sheet, frame_index: int,
+                x: float32, y: float32, w: float32, h: float32,
+                color: [4] float32 = .[1,1,1,1]) {
+    frame := get_sprite_frame(sheet, frame_index);
+    draw_textured_rect(x, y, w, h, frame.uv_min, frame.uv_max, sheet.texture, color);
+}

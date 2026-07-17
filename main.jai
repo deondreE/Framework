@@ -7,8 +7,9 @@
 COMPUTE_COUNT :: 64;
 
 test_cs:      *Compute_Shader;
-compute_buf:  *MTLBuffer;   // shared-storage float[COMPUTE_COUNT], readable from CPU
-print_timer:  int;          // counts frames, prints result every 60
+compute_buf:  *MTLBuffer;
+print_timer:  int;
+test_sheet:   Sprite_Sheet;
 
 main :: () {
     if !init_framework() {
@@ -16,11 +17,13 @@ main :: () {
         return;
     }
 
-    // ---- Compute shader setup ----
     test_cs = create_compute_shader(get_shader_path("test_compute.metal"), "compute_test");
     if !test_cs.valid  print("Warning: compute shader failed to compile.\n");
 
-    // MTLResourceStorageModeShared (0) lets the CPU read results back directly.
+    sheet_ok: bool;
+    test_sheet, sheet_ok = load_sprite_sheet("Assets/Sheet.png", 4, 1);
+    if !sheet_ok  print("Warning: could not load sprite sheet.\n");
+
     compute_buf = global_framework.device.newBufferWithLength_options(
         global_framework.device, xx (size_of(float) * COMPUTE_COUNT), xx 0);
     audio_sys := audio_init();
@@ -111,7 +114,6 @@ render_pass :: () {
 
     uniforms: Uniforms;
     uniforms.time = elapsed;
-
     screen_uniforms: Screen_Uniforms;
     screen_uniforms.screen_size = .[cast(float32)window_width, cast(float32)window_height];
 
@@ -154,6 +156,9 @@ render_pass :: () {
     draw_rect(html_container.rect.x, html_container.rect.y, html_container.rect.w, html_container.rect.h, .[0.15, 0.15, 0.15, 1.0]);
 
     render_html(*html_container, html_input, cast(float32)window_width, cast(float32)window_height);
+
+    anim_frame := cast(int)(elapsed * 8.0) % max(test_sheet.frames.count, 1);
+    draw_sprite(test_sheet, anim_frame, 100, 100, cast(float32)test_sheet.frame_width, cast(float32)test_sheet.frame_height);
 
     layout_end(*settings_menu);
     layout_end(*html_container);

@@ -23,7 +23,7 @@ Simple module for creating application for MACOS in jai using metal.
 - [x] Controller
 - [x] Audio
 - [x] Job System -- Threading solution
-- [ ] Compute Shaders
-- [ ] 
+- [x] Compute Shaders
+- [ ] Support for atlas. 
 
-- [ ] Inputting shaders into the renderer, attaching them to a given render pass. User creates shader then it creates all the things for a pass.
+- [x] Inputting shaders into the renderer, attaching them to a given render pass. User creates shader then it creates all the things for a pass.
