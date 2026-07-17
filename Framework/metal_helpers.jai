@@ -1,5 +1,6 @@
 #import "Objective_C";
-ns_string :: (s: string) -> *NSString { 
+
+ns_string :: (s: string) -> *NSString {
     return NSString.initWithString(objc_alloc(NSString), s);
 }
 

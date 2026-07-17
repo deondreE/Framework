@@ -35,7 +35,7 @@ layout_begin :: (l: *Layout, x: float32, y: float32, w: float32, h: float32, mou
 }
 
 mouse_over_rect :: (mouse: Mouse_State, r: Rect) -> bool {
-    return mouse.x >= r.x && mouse.x <= r.x + r.w && 
+    return mouse.x >= r.x && mouse.x <= r.x + r.w &&
            mouse.y >= r.y && mouse.y <= r.y + r.h;
 }
 
@@ -70,7 +70,7 @@ layout_begin_child :: (parent: *Layout, type: Layout_Type, w: float32, h: float3
     child: Layout;
     child.type = type;
     child.mouse = parent.mouse; // Pass mouse state down to child
-    
+
     // Reserve the space in the parent for this child
     r := layout_reserve_space(parent, w, h);
     layout_begin(*child, r.x, r.y, r.w, r.h, *child.mouse);
@@ -79,5 +79,5 @@ layout_begin_child :: (parent: *Layout, type: Layout_Type, w: float32, h: float3
 
 
 layout_end :: (layout: *Layout) {
-    // NOTE: Potentially calculate total used height/width for auto-sizing containers
+    // Note: Potentially calculate total used height/width for auto-sizing containers
 }

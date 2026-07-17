@@ -20,8 +20,10 @@ Simple module for creating application for MACOS in jai using metal.
   * Togglable interactions
 - [ ] KEYBOARD
 - [x] Mouse
-- [ ] Controller
+- [x] Controller
 - [x] Audio
-- [ ] Job System -- Threading solution
+- [x] Job System -- Threading solution
+- [ ] Compute Shaders
+- [ ] 
 
 - [ ] Inputting shaders into the renderer, attaching them to a given render pass. User creates shader then it creates all the things for a pass.

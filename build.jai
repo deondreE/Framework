@@ -81,6 +81,10 @@ copy_file_l :: (from: string, to: string) -> bool {
         return;
     }
 
+    if !copy_file_l("Shaders/test_compute.metal", "bin/test_compute.metal") {
+        return;
+    }
+
     // @INFO: Copy Assets
     print("Copying asset folders...");
     if !copy_directory_l("Assets", "bin/Assets") {

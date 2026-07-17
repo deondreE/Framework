@@ -4,22 +4,36 @@
 #import "Objective_C";
 #import "Thread";
 
+COMPUTE_COUNT :: 64;
+
+test_cs:      *Compute_Shader;
+compute_buf:  *MTLBuffer;   // shared-storage float[COMPUTE_COUNT], readable from CPU
+print_timer:  int;          // counts frames, prints result every 60
+
 main :: () {
     if !init_framework() {
         print("Failed to init framework.\n");
         return;
     }
+
+    // ---- Compute shader setup ----
+    test_cs = create_compute_shader(get_shader_path("test_compute.metal"), "compute_test");
+    if !test_cs.valid  print("Warning: compute shader failed to compile.\n");
+
+    // MTLResourceStorageModeShared (0) lets the CPU read results back directly.
+    compute_buf = global_framework.device.newBufferWithLength_options(
+        global_framework.device, xx (size_of(float) * COMPUTE_COUNT), xx 0);
     audio_sys := audio_init();
 
     print("Background loading started... doing other things.\n");
-    
+
     bg_sound_1, success_1 := load_sound_from_file("Assets/Sounds/Pickup5.wav");
     if success_1 {
         play_sound(audio_sys, *bg_sound_1, volume=0.7, looping=true);
     } else {
         print("FAILED TO LOAD SOUND\n");
     }
-    
+
     print("Framework runing...");
 
     while !global_framework.quit {
@@ -28,14 +42,45 @@ main :: () {
         pool := objc_init(objc_alloc(objc_getClass("NSAutoReleasePool")));
 
         update_framework();
+        compute_pass();
         render_pass();
 
         release_pool: (*void, Selector) -> void #c_call;
         release_pool = xx objc_msgSend;
         release_pool(pool, sel_registerName("release"));
     }
-    
+
     audio_shutdown(audio_sys);
+}
+
+compute_pass :: () {
+    using global_framework;
+
+    if !test_cs || !test_cs.valid return;
+
+    now     := current_time_monotonic();
+    elapsed := cast(float) to_float64_seconds(now - start_time);
+
+    cb  := command_queue.commandBuffer(command_queue);
+    enc := cb.computeCommandEncoder(cb);
+
+    enc.setBuffer_offset_atIndex(enc, xx compute_buf, 0, 0);
+    enc.setBytes_length_atIndex(enc, *elapsed, size_of(float), 1);
+
+    dispatch_compute(enc, test_cs, COMPUTE_COUNT);
+
+    (cast(*MTLCommandEncoder) enc).endEncoding(cast(*MTLCommandEncoder) enc);
+    cb.commit(cb);
+    cb.waitUntilCompleted(cb);  // so we can safely read the buffer below
+
+    // Print the first few output values once per second (~60 frames).
+    // print_timer += 1;
+    // if print_timer >= 60 {
+    //     print_timer = 0;
+    //     results := cast(*float) compute_buf.contents(compute_buf);
+    //     print("compute[0..3] = %.3, %.3, %.3, %.3  (t=%.2)\n",
+    //           results[0], results[1], results[2], results[3], elapsed);
+    // }
 }
 
 render_pass :: () {
@@ -86,7 +131,7 @@ render_pass :: () {
     settings_menu := layout_begin_child(*screen, .Vertical, 300, 500);
     settings_menu.alignment = .Center;
 
-    bg_r := layout_reserve_space(*settings_menu, 0, 0); 
+    bg_r := layout_reserve_space(*settings_menu, 0, 0);
     draw_rect(bg_r.x, bg_r.y, bg_r.w, bg_r.h, .[0.2, 0.2, 0.2, 1.0]);
 
     tr := layout_reserve_space(*settings_menu, 100, 40);
@@ -103,9 +148,17 @@ render_pass :: () {
     txt_r := layout_reserve_space(*settings_menu, 100, 20);
     draw_text("Settings Menu", txt_r.x, txt_r.y, cast(float32)window_width, cast(float32)window_height, 1.0, 300);
 
+    layout_begin(*screen, 0, 0, cast(float32)window_width, cast(float32)window_height, *mouse);
+    html_input := "<div><h1>Update Status</h1><hr>All systems norminal.</div>";
+    html_container := layout_begin_child(*screen, .Vertical, 400, 600);
+    draw_rect(html_container.rect.x, html_container.rect.y, html_container.rect.w, html_container.rect.h, .[0.15, 0.15, 0.15, 1.0]);
+
+    render_html(*html_container, html_input, cast(float32)window_width, cast(float32)window_height);
+
     layout_end(*settings_menu);
+    layout_end(*html_container);
     layout_end(*screen);
-    
+
     // --- draw_line tests ---
 
     // Thick diagonal line, to check the perpendicular-offset math at an angle

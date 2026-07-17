@@ -6,6 +6,7 @@
 #import "File";
 
 #load "metal_helpers.jai";
+#load "shader_system.jai";
 #load "font_atlas.jai";
 #load "text.jai";
 #load "quad_batch.jai";
@@ -13,6 +14,7 @@
 #load "texture_loading.jai";
 #load "job_system.jai";
 #load "ui_lib.jai";
+#load "html.jai";
 
 #if OS == .MACOS {
     #import "Metal";
@@ -97,7 +99,7 @@ create_depth_using_texture :: (width: s32, height: s32) -> *MTLTexture {
     return xx device.newTextureWithDescriptor(device, desc);
 }
 
-get_sahder_path :: (filename: string) -> string {
+get_shader_path :: (filename: string) -> string {
     exe_path := get_path_of_running_executable();
 
     slash_index := find_index_from_right(exe_path, #char "/");
@@ -132,7 +134,7 @@ init_framework :: () -> bool {
         return false;
     }
 
-    shader_path := get_sahder_path("default.metal");
+    shader_path := get_shader_path("default.metal");
     defer free(shader_path);
 
     shader_source, ok := read_entire_file(shader_path);
@@ -167,7 +169,7 @@ init_framework :: () -> bool {
         return false;
     }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // default pipeline state
 
     pipeline_desc := objc_init(objc_alloc(MTLRenderPipelineDescriptor));
@@ -356,9 +358,11 @@ update_framework :: () {
 
     update_mouse_state(*mouse, window);
 
+    check_shader_hot_reload();
+
     resizes := get_window_resizes();
     for resize : resizes {
-        if resize.window != window continue; // ignore other windows, if any exist
+        if resize.window != window continue;
 
         window_width  = resize.width;
         window_height = resize.height;
